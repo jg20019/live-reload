@@ -2,6 +2,15 @@
 
 (in-package #:live-reload)
 
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (ql:quickload :djula))
+
+
+(djula:add-template-directory (asdf:system-relative-pathname :live-reload #p"templates/"))
+
+(defparameter +index.html+ (djula:compile-template* "index.html"))
+
+
 (defmacro with-page ((&key title) &body body)
   "This macro generates html string using title and body 
    according to the syntax defined by spinneret.
@@ -35,6 +44,13 @@
     (:h1 "Hello World")
     (:p *count*)))
 
+(hunchentoot:define-easy-handler (djula-index :uri "/djula") () 
+  "A test HTML page using Djula"
+  (render-live-reload +index.html+ nil :count *count*))
+
+(defun render-live-reload (template &optional stream &rest template-arguments)
+  (apply #'djula:render-template* template stream template-arguments))
+
 ;;;; Websockets
 
 (defvar *connection* (make-instance 'hunchensocket:websocket-resource))
@@ -47,7 +63,6 @@
   (incf *count*)
   (dolist (peer (hunchensocket:clients *connection*))
     (hunchensocket:send-text-message peer "reload")))
-
 
 (defvar *server* 
   (make-instance 'hunchentoot:easy-acceptor :port 4242) "HTTP Listener")
